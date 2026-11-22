@@ -20,13 +20,27 @@ OUT = sys.argv[1] if len(sys.argv) > 1 else "_site"
 PERIODS = ("day", "week", "month")
 IMG_LIMIT = 400  # 스냅샷당 내려받는 썸네일 최대 개수
 # 수집이 실패(0개)한 소스는 이전 배포 스냅샷을 재사용합니다
-PAGES_BASE = os.environ.get("PAGES_BASE", "https://lmorejh.github.io/daily-trend-viewer/")
+def _own_pages_base():
+    """내 포크의 GitHub Pages 주소 (Actions 안에서는 GITHUB_REPOSITORY 로 자동 계산).
+    원작자 사이트의 스냅샷을 가져오지 않도록 기본값은 비워 둡니다."""
+    if os.environ.get("PAGES_BASE"):
+        return os.environ["PAGES_BASE"].rstrip("/") + "/"
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    if "/" not in repo:
+        return ""
+    owner, name = repo.split("/", 1)
+    owner = owner.lower()
+    if name.lower() == owner + ".github.io":
+        return "https://%s.github.io/" % owner
+    return "https://%s.github.io/%s/" % (owner, name)
+
+
+PAGES_BASE = _own_pages_base()
 
 # static_shim.js의 SLUG와 반드시 일치해야 합니다 (파일명에 쓸 영문 슬러그)
 CATEGORY_SLUGS = {
-    "전체": "all", "AI": "ai", "먹방": "mukbang", "뷰티/패션": "beauty",
-    "브이로그": "vlog", "예능/코미디": "fun", "영화/드라마": "movie",
-    "테크/IT": "tech", "지식/교육": "edu", "여행": "travel", "동물": "animal",
+    "전체": "all", "AI": "ai", "자기계발": "growth",
+    "새로운 삶 도전": "newlife", "식당 사장": "restaurant", "제주도": "jeju",
 }
 
 
@@ -84,17 +98,25 @@ def carry_forward(name, items_key, current):
     if current.get(items_key):
         return current
     prev = None
-    try:
-        _, body = server.http_get(PAGES_BASE + "data/" + name, timeout=15)
-        prev = json.loads(body.decode("utf-8"))
-    except Exception:
-        pass
+    if PAGES_BASE:
+        try:
+            _, body = server.http_get(PAGES_BASE + "data/" + name, timeout=15)
+            prev = json.loads(body.decode("utf-8"))
+        except Exception:
+            pass
     seed = None
     try:
         with open(os.path.join(server.BASE_DIR, "seed", name), encoding="utf-8") as f:
             seed = json.load(f)
     except (OSError, json.JSONDecodeError):
         pass
+    # 릴스는 지금 구독 중인 계정 것만 재사용 (계정을 바꿨는데 예전 계정 릴스가 다시 뜨지 않게)
+    accounts = {str(a).lower() for a in (current.get("accounts") or [])}
+    if name == "reels.json" and accounts:
+        for cand in (prev, seed):
+            if cand and cand.get(items_key):
+                cand[items_key] = [it for it in cand[items_key]
+                                   if str(it.get("account", "")).lower() in accounts]
     best, label = None, ""
     for cand, lab in ((prev, "이전 스냅샷"), (seed, "시드")):
         if cand and cand.get(items_key) and \

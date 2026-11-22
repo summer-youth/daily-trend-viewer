@@ -35,19 +35,15 @@ IMG_CACHE_MAX = 600
 
 # ---------------------------------------------------------------- 유튜브
 # 카테고리 → 유튜브 검색어 매핑
+# 카테고리마다 검색어 3~5개 → 각각 검색해서 합친 뒤 조회수순 정렬
 CATEGORIES = {
-    "먹방": "먹방",
-    "뷰티/패션": "뷰티 메이크업 패션",
-    "브이로그": "브이로그",
-    "예능/코미디": "예능 웃긴 영상",
-    "영화/드라마": "영화 드라마 리뷰",
-    "테크/IT": "테크 리뷰",
-    "지식/교육": "지식 교양",
-    "여행": "여행",
-    "동물": "강아지 고양이",
+    "자기계발": ["자기계발", "갓생 루틴", "미라클모닝", "동기부여", "습관 만들기"],
+    "새로운 삶 도전": ["퇴사 후 인생", "인생 2막", "새로운 도전 브이로그", "직업 바꾸기", "30대 진로 고민"],
+    "식당 사장": ["식당 사장 브이로그", "자영업자 브이로그", "음식점 창업", "가게 오픈 준비", "식당 매출"],
+    "제주도": ["제주 브이로그", "제주 한달살기", "제주 이주", "제주 맛집", "제주 창업"],
 }
 # "전체" 탭은 아래 카테고리들을 합쳐 조회수순으로 재정렬
-ALL_MERGE = ["먹방", "브이로그", "예능/코미디", "뷰티/패션", "영화/드라마", "여행"]
+ALL_MERGE = list(CATEGORIES)
 
 # 검색 필터 protobuf: 업로드 날짜 (2=오늘, 3=이번 주, 4=이번 달)
 PERIOD_CODE = {"day": 2, "week": 3, "month": 4}
@@ -63,10 +59,7 @@ PERIOD_EXCLUDE = {
 # ---------------------------------------------------------------- 인스타그램 릴스
 IG_APP_ID = "936619743392459"  # instagram.com 웹이 쓰는 공개 앱 ID
 ACCOUNTS_FILE = os.path.join(BASE_DIR, "reels_accounts.json")
-DEFAULT_IG_ACCOUNTS = [
-    "openai", "runwayapp", "pika_labs", "lumalabsai", "midjourney",
-    "klingai_official", "heygen_official", "higgsfield.ai", "googledeepmind",
-]
+DEFAULT_IG_ACCOUNTS = ["kodwasip", "mymysongg"]
 
 # ---------------------------------------------------------------- X (트위터)
 X_ACCOUNTS_FILE = os.path.join(BASE_DIR, "x_accounts.json")
@@ -260,11 +253,11 @@ def get_videos(category: str, period: str, shorts: bool, force: bool, enrich: bo
         if query:
             queries = [query]
         elif category == "전체":
-            queries = [CATEGORIES[c] for c in ALL_MERGE]
+            queries = [q for c in ALL_MERGE for q in CATEGORIES[c][:3]]
         elif category == "AI":
             queries = AI_YT_QUERIES
         else:
-            queries = [CATEGORIES.get(category, category)]
+            queries = list(CATEGORIES.get(category, [category]))
         vids = merge_yt_searches(queries, period, shorts)
         if enrich:
             enrich_likes(vids)
